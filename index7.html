@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Data Fetcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for better aesthetics beyond Tailwind defaults */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            max-width: 90%;
+            width: 800px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .user-card {
+            background-color: #f7f9fc; /* Slightly darker light gray for cards */
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            text-align: left;
+            border: 1px solid #e0e0e0;
+        }
+        .user-card h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .user-card p {
+            font-size: 1rem;
+            color: #555;
+            margin-bottom: 5px;
+            line-height: 1.5;
+        }
+        .user-card p strong {
+            color: #222;
+        }
+        .button-primary {
+            background-color: #4CAF50; /* Green */
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);
+        }
+        .button-primary:hover {
+            background-color: #45a049; /* Darker green */
+            transform: translateY(-2px);
+        }
+        .button-primary:active {
+            transform: translateY(0);
+        }
+        #messageBox {
+            background-color: #ffffe0; /* Light yellow */
+            border: 1px solid #ffcc00;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none; /* Hidden by default */
+            font-size: 1rem;
+            text-align: left;
+        }
+        #messageBox.active {
+            display: block;
+        }
+        #loadingSpinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center p-5 min-h-screen">
+    <div class="container bg-white rounded-xl shadow-lg p-8 max-w-4xl w-full mb-5">
+        <h1 class="text-4xl font-extrabold text-gray-800 mb-6">User Data Display</h1>
+        <div id="messageBox" class="rounded-lg p-4 mb-4 text-sm font-medium"></div>
+        <button id="reloadButton" class="button-primary">Reload Data</button>
+        <div id="loadingSpinner"></div>
+    </div>
+    <div id="userDataContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-4xl">
+        <!-- User data will be displayed here -->
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const userDataContainer = document.getElementById('userDataContainer');
+        const reloadButton = document.getElementById('reloadButton');
+        const messageBox = document.getElementById('messageBox');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+
+        // Function to show a message in the message box
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.className = `rounded-lg p-4 mb-4 text-sm font-medium active`; // Reset classes and add active
+            if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+            } else if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+            } else { // info or default
+                messageBox.classList.add('bg-yellow-100', 'border-yellow-400', 'text-yellow-700');
+            }
+            messageBox.style.display = 'block'; // Ensure it's visible
+        }
+
+        // Function to hide the message box
+        function hideMessage() {
+            messageBox.textContent = '';
+            messageBox.classList.remove('active', 'bg-red-100', 'border-red-400', 'text-red-700', 'bg-green-100', 'border-green-400', 'text-green-700', 'bg-yellow-100', 'border-yellow-400', 'text-yellow-700');
+            messageBox.style.display = 'none'; // Hide it
+        }
+
+        // Function to show loading spinner
+        function showLoading() {
+            loadingSpinner.style.display = 'block';
+        }
+
+        // Function to hide loading spinner
+        function hideLoading() {
+            loadingSpinner.style.display = 'none';
+        }
+
+        // Function to fetch and display user data
+        async function fetchUsers() {
+            showLoading(); // Show spinner
+            hideMessage(); // Clear any previous messages
+            userDataContainer.innerHTML = ''; // Clear previous user data
+            const apiUrl = 'https://jsonplaceholder.typicode.com/users';
+
+            try {
+                // Fetch data from the API
+                const response = await fetch(apiUrl);
+
+                // Check if the response is OK (status code 200-299)
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Parse the JSON response
+                const users = await response.json();
+
+                // Loop through users and display their information
+                if (users && users.length > 0) {
+                    users.forEach(user => {
+                        const userCard = document.createElement('div');
+                        userCard.className = 'user-card'; // Apply custom card styles
+                        userCard.innerHTML = `
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">${user.name}</h3>
+                            <p class="text-gray-700"><strong>Email:</strong> ${user.email}</p>
+                            <p class="text-gray-700"><strong>Address:</strong> ${user.address.street}, ${user.address.suite}, ${user.address.city}, ${user.address.zipcode}</p>
+                            <p class="text-gray-700"><strong>Phone:</strong> ${user.phone}</p>
+                            <p class="text-gray-700"><strong>Website:</strong> <a href="http://${user.website}" target="_blank" class="text-blue-600 hover:underline">${user.website}</a></p>
+                            <p class="text-gray-700"><strong>Company:</strong> ${user.company.name}</p>
+                        `;
+                        userDataContainer.appendChild(userCard);
+                    });
+                    showMessage('User data loaded successfully!', 'success');
+                } else {
+                    showMessage('No user data found.', 'info');
+                }
+
+            } catch (error) {
+                // Handle any errors that occurred during the fetch operation
+                console.error('There was a problem with the fetch operation:', error);
+                if (error.message.includes('Failed to fetch')) {
+                    showMessage('Network error! Please check your internet connection and try again.', 'error');
+                } else {
+                    showMessage(`Failed to load data: ${error.message}`, 'error');
+                }
+            } finally {
+                hideLoading(); // Hide spinner regardless of success or failure
+            }
+        }
+
+        // Add event listener to the reload button
+        reloadButton.addEventListener('click', fetchUsers);
+
+        // Fetch data when the page loads
+        document.addEventListener('DOMContentLoaded', fetchUsers);
+    </script>
+</body>
+</html>
